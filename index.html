@@ -403,4 +403,138 @@ document.addEventListener('DOMContentLoaded', ()=>{
     document.getElementById('photo').style.display='block';
     document.getElementById('snapBtn').style.display='none';
     if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null;}
-    
+    }
+
+  async function updateWeather() {
+    const weatherDiv = document.getElementById('weatherBox');
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(async (pos)=>{
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const key = '164ffa28451abb80fde64f4dfb43968b';
+        try{
+          const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=tr&appid=${key}`);
+          const data = await res.json();
+          if(data.weather){
+            weatherDiv.innerText = `${data.name}: ${data.weather[0].description}, ${data.main.temp}°C`;
+          } else {
+            weatherDiv.innerText = 'Hava durumu bulunamadı.';
+          }
+        } catch(e){
+          weatherDiv.innerText = 'Hava durumu alınamadı.';
+          console.warn(e);
+        }
+      }, (err)=>{
+        weatherDiv.innerText = 'Konum izni verilmedi veya bulunamadı.';
+        console.warn(err);
+      });
+    } else {
+      weatherDiv.innerText = 'Konum desteklenmiyor.';
+    }
+  }
+  updateWeather();
+  setInterval(updateWeather, 600000);
+
+  document.getElementById('notifyBtn').onclick = ()=>{
+    showPage('pageNotify');
+    if(Notification.permission==='granted'){
+      document.getElementById('notifyDiv').innerText='Henüz Bildiriminiz Bulunmamaktadır.';
+    } else if(Notification.permission!=='denied'){
+      Notification.requestPermission().then(perm=>{
+        if(perm==='granted'){
+          document.getElementById('notifyDiv').innerText='Henüz Bildiriminiz Bulunmamaktadır.';
+        } else {
+          document.getElementById('notifyDiv').innerText='Bildirim izni verilmedi.';
+        }
+      });
+    } else {
+      document.getElementById('notifyDiv').innerText='Bildirim izni verilmedi.';
+    }
+  }
+
+  // ---- Entegre destroy overlay ----
+  const destroyOverlay = document.getElementById('destroyOverlay');
+  const destroyText = document.getElementById('destroyText');
+  const scream = document.getElementById('screamAudio');
+  let destroyShown=false;
+
+  function pickRandomChar(){ return String.fromCharCode(33 + Math.floor(Math.random()*94)); }
+
+  async function showDestroyOverlay(){
+    if(destroyShown) return;
+    destroyShown=true;
+
+    // Görseli kalıcı yapıyoruz
+    destroyOverlay.style.backgroundImage = "url('Screenshot_2025-09-30-17-31-23-924-edit_com.google.android.googlequicksearchbox.jpg')";
+    destroyOverlay.style.display = 'flex';
+    destroyOverlay.setAttribute('aria-hidden','false');
+    document.body.style.overflow = 'hidden';
+
+    destroyText.style.opacity = '0';
+    destroyText.textContent = '';
+    await new Promise(r=>setTimeout(r,120));
+
+    try{ scream.currentTime = 0; scream.play().catch(()=>{}); }catch(e){}
+
+    const phrases = ["File Destroying...", "Bye Bye Phone!"];
+    let repeatCount = 0;
+
+    function showPhrase(index){
+      let i = 0;
+      const final = phrases[index];
+      destroyText.style.opacity = '1';
+      destroyText.classList.add('glitch');
+
+      function step(){
+        if(i < final.length){
+          destroyText.textContent = (destroyText.textContent.slice(0,-1) || '') + pickRandomChar();
+          setTimeout(()=>{
+            destroyText.textContent = final.slice(0, i+1);
+            destroyText.style.animation = 'shakeX 220ms';
+            setTimeout(()=>{ destroyText.style.animation = ''; }, 220);
+            i++;
+            const nextDelay = 60 + Math.floor(Math.random()*140);
+            setTimeout(step, nextDelay);
+          }, 50 + Math.floor(Math.random()*90));
+        } else {
+          destroyText.classList.add('glitch');
+          setTimeout(()=>{
+            repeatCount++;
+            if(repeatCount<3){
+              showPhrase(index);
+            } else if(index<phrases.length-1){
+              showPhrase(index+1);
+            } else {
+              // Yazılar kayboluyor ama overlay kalıcı
+              destroyText.style.opacity='0';
+              try{ scream.pause(); scream.currentTime=0; }catch(e){}
+            }
+          }, 600);
+        }
+      }
+      step();
+    }
+
+    showPhrase(0);
+  }
+
+  document.getElementById('banaBasBtn').onclick = ()=>{
+    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+    showDestroyOverlay();
+  }
+
+  // blackScreen fallback
+  document.getElementById('blackScreen').onclick = ()=>{
+    document.getElementById('blackScreen').style.display='none';
+    try{ scream.pause(); scream.currentTime = 0; }catch(e){}
+  }
+
+  document.getElementById('backBtn').onclick = ()=> showPage('mainPage');
+  document.getElementById('backBtnPhoto').onclick = ()=> showPage('mainPage');
+  document.getElementById('backBtnPhone').onclick = ()=> showPage('mainPage');
+  document.getElementById('backBtnNotify').onclick = ()=> showPage('mainPage');
+
+});
+</script>
+</body>
+</html>
